@@ -1,0 +1,68 @@
+name: Staging Deployment Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, pnpm]
+  pull_request:
+    branches: [main, pnpm]
+    types: [opened]
+
+env:
+  NODE_VERSION: 18.13.0
+
+jobs:
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get code
+        uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 7
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./node_modules
+          key: deps-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          pnpm -F api install
+      - name: transfer files
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.DO_DROPLET_IP_ADD }}
+          username: ${{ secrets.DO_DROPLET_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          # password: ${{ secrets.PASSWORD }}
+          source: './'
+          target: '~/app'
+      - name: run api
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DO_DROPLET_IP_ADD }}
+          # host: ${{ secrets.DO_DROPLET_DOMAIN }}
+          username: ${{ secrets.DO_DROPLET_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          script: |
+            lsof -t -i:5000 | xargs -r kill
+            cd app
+            chmod u+x apps/api/index.js
+            pm2 start apps/api/index.js
+            pm2 save
+
+          # pm2 startup systemd
+          # node apps/api/index.js
+          # nohup node apps/api/index.js </dev/null &>/dev/null &
+          # bg
