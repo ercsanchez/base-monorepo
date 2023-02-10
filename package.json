@@ -7,10 +7,14 @@
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "pnpm -r --stream --if-present dev"
+    "dev": "turbo run dev",
+    "build": "turbo run build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "devDependencies": {
+    "turbo": "^1.7.4"
+  },
   "packageManager": "pnpm@7.26.3"
 }
